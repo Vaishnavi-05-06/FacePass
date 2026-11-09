@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FacePass</title>
+<style>
+:root{--bg:#0B1220;--sf:#121B2E;--sf2:#1A2640;--ac:#3DDC97;--bad:#FF5C6C;--tx:#E8EEF9;--mu:#8A97B2;--wn:#FFC857;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#0B1220}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;justify-content:center}
+#app{width:100%;max-width:440px;padding:20px 18px 90px}
+h1{font-size:26px;margin:6px 0 2px}h2{font-size:20px;margin:6px 0 14px}p{color:var(--mu);line-height:1.5;margin:4px 0 14px}
+.card{background:var(--sf);border-radius:18px;padding:18px;margin-bottom:14px}
+.btn{display:block;width:100%;border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:600;cursor:pointer;background:var(--ac);color:#06281A;margin:8px 0}
+.btn.sec{background:var(--sf2);color:var(--tx)}.btn.bad{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px}.row .btn{flex:1}
+input[type=text]{width:100%;padding:14px;border-radius:12px;border:1px solid #2a3a5c;background:var(--sf2);color:var(--tx);font-size:16px;margin:6px 0 10px}
+label{font-size:13px;color:var(--mu)}
+.cam{position:relative;aspect-ratio:3/4;background:#000;border-radius:20px;overflow:hidden;margin-bottom:10px}
+.cam video,.cam img{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.oval{position:absolute;inset:12% 18%;border:3px dashed rgba(255,255,255,.6);border-radius:50%;pointer-events:none}
+.cam.ok .oval{border-color:var(--ac);border-style:solid}.cam.no .oval{border-color:var(--bad);border-style:solid}
+.msg{position:absolute;left:0;right:0;bottom:0;padding:10px;text-align:center;background:rgba(0,0,0,.55);font-size:14px}
+.stat{display:flex;gap:10px}.stat div{flex:1;background:var(--sf);border-radius:14px;padding:14px;text-align:center}
+.stat b{display:block;font-size:24px}.stat span{font-size:12px;color:var(--mu)}
+.person,.logi{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--sf2)}
+.av{width:40px;height:40px;border-radius:50%;background:var(--sf2);display:grid;place-items:center;font-weight:700;color:var(--ac)}
+.grow{flex:1}.grow small{display:block;color:var(--mu)}
+.pill{font-size:12px;padding:4px 10px;border-radius:99px}.g{background:#12382A;color:var(--ac)}.d{background:#3a1820;color:var(--bad)}
+.dots{display:flex;gap:8px;justify-content:center;margin:6px 0}.dots i{width:12px;height:12px;border-radius:50%;background:var(--sf2)}.dots i.on{background:var(--ac)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:var(--sf);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+nav div{display:flex;width:100%;max-width:440px}nav button{flex:1;background:none;border:0;color:var(--mu);font-size:12px;padding:6px;cursor:pointer}nav button.on{color:var(--ac)}nav span{display:block;font-size:20px}
+.hide{display:none}.empty{text-align:center;color:var(--mu);padding:20px}
+.door{font-size:56px;text-align:center;transition:transform .4s}.door.open{transform:scale(1.2)}
+input[type=range]{width:100%}
+.note{font-size:12px;color:var(--wn);background:#2f2813;border-radius:12px;padding:10px;line-height:1.5}
+</style></head><body><div id="app">
+
+<section id="home">
+<h1>🔐 FacePass</h1><p>Look at the camera. To Get in.</p>
+<div class="stat"><div><b id="nP">0</b><span>People</span></div><div><b id="nG">0</b><span>Granted</span></div><div><b id="nD">0</b><span>Denied</span></div></div><br>
+<button class="btn" id="goScan">Scan to Access</button>
+<button class="btn sec" id="goEnroll">Add a person</button>
+<div class="card"><label>Match strictness: <b id="thV"></b></label><input type="range" id="th" min="70" max="97" value="86"><p style="margin:6px 0 0;font-size:13px">Higher = stricter (fewer false entries, more false rejections).</p></div>
+<div class="note">Prototype note: this demo compares simple face “fingerprints” in your browser. It can be fooled by a photo. Real security needs a trained model (see Version 2).</div>
+</section>
+
+<section id="scan" class="hide">
+<h2>Scan to Acess</h2>
+<div class="cam" id="scanCam"><video id="v1" autoplay playsinline muted></video><img id="i1" class="hide" alt=""><div class="oval"></div><div class="msg" id="scanMsg">Starting camera…</div></div>
+<div class="door" id="door">🔒</div>
+<button class="btn" id="doScan">Scan face</button>
+<label class="btn sec" style="text-align:center">Use a photo instead<input type="file" accept="image/*" id="up1" hidden></label>
+</section>
+
+<section id="enroll" class="hide">
+<h2>Add a person</h2>
+<label>Full name</label><input type="text" id="name" maxlength="30" placeholder="e.g. Priya Shah">
+<div class="cam" id="enCam"><video id="v2" autoplay playsinline muted></video><img id="i2" class="hide" alt=""><div class="oval"></div><div class="msg" id="enMsg">Take 3 photos from slightly different angles</div></div>
+<div class="dots"><i></i><i></i><i></i></div>
+<div class="row"><button class="btn sec" id="cap">Capture</button><button class="btn" id="save" disabled>Save</button></div>
+<label class="btn sec" style="text-align:center">Use a photo instead<input type="file" accept="image/*" id="up2" hidden></label>
+<button class="btn bad" id="reset">Start over</button>
+</section>
+
+<section id="people" class="hide"><h2>People</h2><div class="card" id="pList"></div></section>
+<section id="log" class="hide"><h2>Access log</h2><div class="card" id="lList"></div><button class="btn bad" id="clr">Clear log</button></section>
+</div>
+<nav><div id="nav"><button data-s="home" class="on"><span>🏠</span>Home</button><button data-s="scan"><span>📷</span>Scan</button><button data-s="enroll"><span>➕</span>Add</button><button data-s="people"><span>👥</span>People</button><button data-s="log"><span>📋</span>Log</button></div></nav>
+
+<script>
+const $=s=>document.querySelector(s);
+const S={people:[{name:"Demo User (no face yet)",sigs:[],demo:true}].slice(1),log:[],g:0,d:0,stream:null,cur:"home",pend:[],fails:0,lock:0,busy:false};
+const cv=document.createElement("canvas");cv.width=cv.height=32;const cx=cv.getContext("2d",{willReadFrequently:true});
+
+function sig(el){
+  const w=el.videoWidth||el.naturalWidth,h=el.videoHeight||el.naturalHeight;
+  if(!w||!h)return null;
+  const s=Math.min(w,h)*0.62,sx=(w-s)/2,sy=(h-s)/2-h*0.04;
+  cx.drawImage(el,sx,Math.max(0,sy),s,s,0,0,32,32);
+  const d=cx.getImageData(0,0,32,32).data,v=new Float32Array(1024);let m=0;
+  for(let i=0;i<1024;i++){v[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];m+=v[i]}
+  m/=1024;let n=0;for(let i=0;i<1024;i++){v[i]-=m;n+=v[i]*v[i]}
+  n=Math.sqrt(n);if(n<1)return null;
+  for(let i=0;i<1024;i++)v[i]/=n;return v}
+const cos=(a,b)=>{let s=0;for(let i=0;i<1024;i++)s+=a[i]*b[i];return s};
+
+async function cam(which){
+  stop();const v=$(which==1?"#v1":"#v2"),msg=$(which==1?"#scanMsg":"#enMsg");
+  v.classList.remove("hide");$(which==1?"#i1":"#i2").classList.add("hide");
+  try{S.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});v.srcObject=S.stream;
+    msg.textContent=which==1?"Centre your face in the oval":"Take 3 photos from slightly different angles"}
+  catch(e){msg.textContent="Camera unavailable — use “Use a photo instead” below"}}
+function stop(){if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}}
+
+function go(s){
+  S.cur=s;document.querySelectorAll("section").forEach(e=>e.classList.toggle("hide",e.id!==s));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.s===s));
+  stop();if(s=="scan"){resetScan();cam(1)}if(s=="enroll")cam(2);
+  if(s=="people")drawP();if(s=="log")drawL();stats();window.scrollTo(0,0)}
+function stats(){$("#nP").textContent=S.people.length;$("#nG").textContent=S.g;$("#nD").textContent=S.d}
+function resetScan(){$("#door").textContent="🔒";$("#door").classList.remove("open");$("#scanCam").className="cam";S.busy=false}
+const now=()=>new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+const esc=t=>t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function identify(sigs){
+  let best=-1,who=null;
+  S.people.forEach(p=>sigs.forEach(q=>p.sigs.forEach(r=>{const c=cos(q,r);if(c>best){best=c;who=p}})));
+  return{best,who}}
+function result(ok,name,score){
+  const c=$("#scanCam");c.className="cam "+(ok?"ok":"no");
+  $("#door").textContent=ok?"🔓":"🔒";$("#door").classList.toggle("open",ok);
+  if(ok){S.g++;S.fails=0;$("#scanMsg").textContent="Access granted — welcome, "+name}
+  else{S.d++;S.fails++;$("#scanMsg").textContent="Face not recognised"+(S.fails>=3?" — locked for 10s":"")
+    if(S.fails>=3){S.lock=Date.now()+10000;S.fails=0}}
+  S.log.unshift({ok,name:ok?name:"Unknown",t:now(),sc:Math.round(Math.max(0,score)*100)});
+  stats();setTimeout(()=>{if(S.cur=="scan")resetScan()},3500)}
+
+async function scanNow(src){
+  if(S.busy)return;
+  if(!S.people.length){$("#scanMsg").textContent="No one enrolled yet — add a person first";return}
+  if(Date.now()<S.lock){$("#scanMsg").textContent="Locked. Try again in "+Math.ceil((S.lock-Date.now())/1000)+"s";return}
+  S.busy=true;$("#scanMsg").textContent="Scanning…";const sigs=[];
+  for(let i=0;i<(src?1:3);i++){const s=sig(src||$("#v1"));if(s)sigs.push(s);if(!src)await new Promise(r=>setTimeout(r,180))}
+  if(!sigs.length){S.busy=false;$("#scanMsg").textContent="Couldn’t see a face. Check camera and light.";return}
+  const{best,who}=identify(sigs);const thr=$("#th").value/100;
+  result(best>=thr,who?who.name:"",best)}
+$("#doScan").onclick=()=>scanNow();
+function fromFile(inp,which,fn){
+  const f=inp.files[0];inp.value="";if(!f)return;
+  const img=$(which==1?"#i1":"#i2");img.onload=()=>{img.classList.remove("hide");$(which==1?"#v1":"#v2").classList.add("hide");stop();fn(img)};
+  img.src=URL.createObjectURL(f)}
+$("#up1").onchange=e=>fromFile(e.target,1,i=>{S.busy=false;scanNow(i)});
+
+function dots(){document.querySelectorAll(".dots i").forEach((d,i)=>d.classList.toggle("on",i<S.pend.length));$("#save").disabled=S.pend.length<3}
+function addCap(el){
+  if(S.pend.length>=3){$("#enMsg").textContent="3 of 3 taken — press Save";return}
+  const s=sig(el);if(!s){$("#enMsg").textContent="Couldn’t see a face. Try again.";return}
+  S.pend.push(s);dots();$("#enMsg").textContent=S.pend.length<3?"Captured "+S.pend.length+" of 3":"All 3 taken — press Save"}
+$("#cap").onclick=()=>{const i=$("#i2");addCap(i.classList.contains("hide")?$("#v2"):i)};
+$("#up2").onchange=e=>fromFile(e.target,2,i=>addCap(i));
+$("#reset").onclick=()=>{S.pend=[];dots();$("#name").value="";$("#i2").classList.add("hide");cam(2)};
+$("#save").onclick=()=>{
+  const n=$("#name").value.trim();
+  if(!n){$("#enMsg").textContent="Please type a name first";$("#name").focus();return}
+  if(S.pend.length<3)return;
+  if(S.people.some(p=>p.name.toLowerCase()==n.toLowerCase())){$("#enMsg").textContent="That name already exists";return}
+  S.people.push({name:n,sigs:S.pend.slice()});S.pend=[];dots();$("#name").value="";go("people")};
+
+function drawP(){
+  $("#pList").innerHTML=S.people.length?S.people.map((p,i)=>`<div class="person"><div class="av">${esc(p.name[0].toUpperCase())}</div><div class="grow">${esc(p.name)}<small>${p.sigs.length} face samples</small></div><button class="btn bad" style="width:auto;padding:8px 12px;margin:0" data-i="${i}">Remove</button></div>`).join(""):'<div class="empty">No one yet. Tap “Add” to enrol the first person.</div>';
+  document.querySelectorAll("#pList [data-i]").forEach(b=>b.onclick=()=>{if(confirm("Remove "+S.people[b.dataset.i].name+"?")){S.people.splice(b.dataset.i,1);drawP();stats()}})}
+function drawL(){
+  $("#lList").innerHTML=S.log.length?S.log.map(l=>`<div class="logi"><div class="grow">${esc(l.name)}<small>${l.t} · match ${l.sc}%</small></div><span class="pill ${l.ok?"g":"d"}">${l.ok?"Granted":"Denied"}</span></div>`).join(""):'<div class="empty">No scans yet.</div>'}
+$("#clr").onclick=()=>{if(S.log.length&&confirm("Clear the whole log?")){S.log=[];S.g=0;S.d=0;drawL();stats()}};
+
+$("#th").oninput=()=>$("#thV").textContent=$("#th").value+"%";$("#thV").textContent=$("#th").value+"%";
+$("#goScan").onclick=()=>go("scan");$("#goEnroll").onclick=()=>go("enroll");
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>go(b.dataset.s));
+stats();
+</script></body></html>
